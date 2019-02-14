@@ -38,3 +38,12 @@ func SchemaApiManagementProductDataSourceName() *schema.Schema {
 		ValidateFunc: validate.ApiManagementProductName,
 	}
 }
+
+func SchemaApiManagementUserName() *schema.Schema {
+	return &schema.Schema{
+		Type:         schema.TypeString,
+		Required:     true,
+		ForceNew:     true,
+		ValidateFunc: validate.ApiManagementUserName,
+	}
+}
