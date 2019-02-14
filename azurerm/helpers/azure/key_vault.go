@@ -3,6 +3,7 @@ package azure
 import (
 	"context"
 	"fmt"
+
 	"github.com/Azure/azure-sdk-for-go/services/keyvault/mgmt/2018-02-14/keyvault"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
 )
@@ -46,8 +47,11 @@ func GetKeyVaultIDFromBaseUrl(ctx context.Context, client keyvault.VaultsClient,
 	}
 
 	for list.NotDone() {
-		v := list.Value()
+		if e := list.NextWithContext(ctx); e != nil {
+			return nil, fmt.Errorf("Error getting next vault on KeyVault url %q : %+v", keyVaultUrl, err)
+		}
 
+		v := list.Value()
 		if v.ID == nil {
 			return nil, fmt.Errorf("v.ID was nil")
 		}
@@ -63,11 +67,9 @@ func GetKeyVaultIDFromBaseUrl(ctx context.Context, client keyvault.VaultsClient,
 		get, err := client.Get(ctx, resourceGroup, name)
 		if err != nil {
 			if utils.ResponseWasNotFound(get.Response) {
-				if e := list.NextWithContext(ctx); e != nil {
-					return nil, fmt.Errorf("Error getting next vault on KeyVault url %q : %+v", keyVaultUrl, err)
-				}
 				continue
 			}
+
 			return nil, fmt.Errorf("Error making Read request on KeyVault %q (Resource Group %q): %+v", name, resourceGroup, err)
 		}
 
@@ -78,10 +80,6 @@ func GetKeyVaultIDFromBaseUrl(ctx context.Context, client keyvault.VaultsClient,
 		if keyVaultUrl == *get.Properties.VaultURI {
 			return get.ID, nil
 		}
-
-		if e := list.NextWithContext(ctx); e != nil {
-			return nil, fmt.Errorf("Error getting next vault on KeyVault url %q : %+v", keyVaultUrl, err)
-		}
 	}
 
 	// we haven't found it, but Data Sources and Resources need to handle this error separately
@@ -89,7 +87,6 @@ func GetKeyVaultIDFromBaseUrl(ctx context.Context, client keyvault.VaultsClient,
 }
 
 func KeyVaultExists(ctx context.Context, client keyvault.VaultsClient, keyVaultId string) (bool, error) {
-
 	if keyVaultId == "" {
 		return false, fmt.Errorf("keyVaultId is empty")
 	}

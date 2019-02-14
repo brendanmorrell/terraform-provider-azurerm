@@ -132,12 +132,6 @@ func resourceArmKeyVaultKeyCreate(d *schema.ResourceData, meta interface{}) erro
 		}
 
 		keyVaultBaseUri = pKeyVaultBaseUrl
-	} else {
-		id, err := azure.GetKeyVaultIDFromBaseUrl(ctx, vaultClient, keyVaultBaseUri)
-		if err != nil {
-			return fmt.Errorf("Error unable to find key vault ID from URL %q for certificate %q: %+v", keyVaultBaseUri, name, err)
-		}
-		d.Set("key_vault_id", id)
 	}
 
 	if requireResourcesToBeImported {
@@ -272,6 +266,7 @@ func resourceArmKeyVaultKeyRead(d *schema.ResourceData, meta interface{}) error 
 	}
 
 	d.Set("name", id.Name)
+	d.Set("key_vault_id", keyVaultId)
 	d.Set("vault_uri", id.KeyVaultBaseUrl)
 	if key := resp.Key; key != nil {
 		d.Set("key_type", string(key.Kty))
