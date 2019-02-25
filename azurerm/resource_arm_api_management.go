@@ -5,8 +5,10 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Azure/azure-sdk-for-go/services/preview/apimanagement/mgmt/2018-06-01-preview/apimanagement"
+	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/helper/validation"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/azure"
@@ -456,9 +458,17 @@ func resourceArmApiManagementServiceDelete(d *schema.ResourceData, meta interfac
 	log.Printf("[DEBUG] Deleting API Management Service %q (Resource Grouo %q)", name, resourceGroup)
 	resp, err := client.Delete(ctx, resourceGroup, name)
 	if err != nil {
-		if !utils.ResponseWasNotFound(resp) {
+		if utils.ResponseWasNotFound(resp) {
+			return nil
+		}
+
+		if !utils.ResponseWasAccepted(resp) {
 			return fmt.Errorf("Error deleting API Management Service %q (Resource Group %q): %+v", name, resourceGroup, err)
 		}
+	}
+
+	if err := resource.Retry(10*time.Minute, resourceApiManagementWaitToDisappear(meta, resourceGroup, name)); err != nil {
+		return fmt.Errorf("Error waiting for API Management Service %q (Resource Group %q) to be deleted: %s", name, resourceGroup, err)
 	}
 
 	return nil
@@ -861,4 +871,26 @@ func parseApiManagementNilableDictionary(input map[string]*string, key string) b
 	}
 
 	return val
+}
+
+func resourceApiManagementWaitToDisappear(meta interface{}, resourceGroup, name string) func() *resource.RetryError {
+	return func() *resource.RetryError {
+		client := meta.(*ArmClient).apiManagementServiceClient
+		ctx := meta.(*ArmClient).StopContext
+
+		resp, err := client.Get(ctx, resourceGroup, name)
+		if err != nil {
+			if utils.ResponseWasNotFound(resp.Response) {
+				return nil
+			}
+
+			return resource.NonRetryableError(err)
+		}
+
+		if resp.Name != nil && *resp.Name != "" {
+			return resource.RetryableError(err)
+		}
+
+		return nil
+	}
 }

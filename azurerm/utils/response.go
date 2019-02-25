@@ -7,6 +7,10 @@ import (
 	"github.com/Azure/go-autorest/autorest"
 )
 
+func ResponseWasAccepted(resp autorest.Response) bool {
+	return responseWasStatusCode(resp, http.StatusAccepted)
+}
+
 func ResponseWasNotFound(resp autorest.Response) bool {
 	return responseWasStatusCode(resp, http.StatusNotFound)
 }
